@@ -4,6 +4,7 @@ import 'package:bixolon_printer/bixolon_printer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_classic/flutter_blue_classic.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(const MyApp());
@@ -61,6 +62,13 @@ class _MainScreenState extends State<MainScreen> {
       ) {
         if (mounted) setState(() => _scanResults.add(device));
       });
+
+      _flutterBlueClassicPlugin.bondedDevices.then((value) {
+        value?.forEach((element) {
+          if (mounted) setState(() => _scanResults.add(element));
+        });
+      });
+
       _scanningStateSubscription = _flutterBlueClassicPlugin.isScanning.listen((
         isScanning,
       ) {
@@ -122,12 +130,12 @@ class _MainScreenState extends State<MainScreen> {
                   //   );
                   //   if (!this.context.mounted) return;
                   //   if (connection != null && connection.isConnected) {
-                      var address = await _bixolonPrinterPlugin.connectSDK(
-                        macAddress: result.address,
-                      );
-                      print(address);
-                      await Future.delayed(Duration(seconds: 5));
-                       _bixolonPrinterPlugin.printSample();
+                  var address = await _bixolonPrinterPlugin.connectSDK(
+                    macAddress: result.address,
+                  );
+                  print(address);
+                  await Future.delayed(Duration(seconds: 5));
+                  _bixolonPrinterPlugin.printSample();
                   //   }
                   // } catch (e) {
                   //   if (mounted) setState(() => _connectingToIndex = null);
@@ -148,7 +156,8 @@ class _MainScreenState extends State<MainScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           FloatingActionButton.extended(
-            onPressed: () {
+            onPressed: () async {
+              await Permission.location.request();
               if (_isScanning) {
                 _flutterBlueClassicPlugin.stopScan();
               } else {
@@ -157,7 +166,9 @@ class _MainScreenState extends State<MainScreen> {
               }
             },
             label: Text(_isScanning ? "Scanning..." : "Start device scan"),
-            icon: Icon(_isScanning ? Icons.bluetooth_searching : Icons.bluetooth),
+            icon: Icon(
+              _isScanning ? Icons.bluetooth_searching : Icons.bluetooth,
+            ),
           ),
         ],
       ),
