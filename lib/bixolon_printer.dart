@@ -1,9 +1,10 @@
+import 'package:bixolon_printer/model/print_config.dart';
+
 import 'bixolon_printer_platform_interface.dart';
 
 /// A wrapper class that exposes simple methods
 /// to interact with the Bixolon printer plugin.
 class BixolonPrinter {
-
   /// Returns the platform version (Android/iOS) from the native side.
   Future<String?> getPlatformVersion() {
     return BixolonPrinterPlatform.instance.getPlatformVersion();
@@ -25,7 +26,9 @@ class BixolonPrinter {
   }
 
   /// Sends a sample print job to the connected Bixolon printer.
-  Future<String?> printSample() {
-    return BixolonPrinterPlatform.instance.printSample();
+  Future<String?> printSample({required PrintConfig printConfig}) {
+    return BixolonPrinterPlatform.instance.printSample(
+      printConfig: printConfig,
+    );
   }
 }

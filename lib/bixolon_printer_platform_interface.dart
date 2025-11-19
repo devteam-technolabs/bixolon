@@ -1,3 +1,4 @@
+import 'package:bixolon_printer/model/print_config.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'bixolon_printer_method_channel.dart';
@@ -31,11 +32,11 @@ abstract class BixolonPrinterPlatform extends PlatformInterface {
     throw UnimplementedError('initPrinter() has not been implemented.');
   }
 
-  Future<String?> connectPrinter({required String macAddress}){
+  Future<String?> connectPrinter({required String macAddress}) {
     throw UnimplementedError('connectPrinter() has not been implemented.');
   }
 
-  Future<String?> printSample(){
+  Future<String?> printSample({required PrintConfig printConfig}) {
     throw UnimplementedError('connectPrinter() has not been implemented.');
   }
 }

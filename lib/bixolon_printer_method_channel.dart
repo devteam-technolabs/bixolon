@@ -1,5 +1,4 @@
-import 'dart:developer';
-
+import 'package:bixolon_printer/model/print_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -34,10 +33,11 @@ class MethodChannelBixolonPrinter extends BixolonPrinterPlatform {
   }
 
   @override
-  Future<String?> printSample()async {
-    log('init printSample');
-    final response = await methodChannel.invokeMethod<String>('printSample');
+  Future<String?> printSample({required PrintConfig printConfig}) async {
+    final response = await methodChannel.invokeMethod<String>(
+      'printSample',
+      printConfig.toJson(),
+    );
     return response;
   }
-
 }
