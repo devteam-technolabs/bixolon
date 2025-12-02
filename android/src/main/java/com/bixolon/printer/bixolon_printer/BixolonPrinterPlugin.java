@@ -20,9 +20,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Base64;
 import android.util.Log;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
@@ -36,221 +33,100 @@ import java.util.Set;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
+import io.flutter.plugin.common.EventChannel;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
-import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
-import io.flutter.plugin.common.MethodChannel.Result;
 
+public class BixolonPrinterPlugin implements FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware {
 
-public class BixolonPrinterPlugin implements FlutterPlugin, MethodCallHandler, ActivityAware {
-
-
-    private static final String[] FUNCTIONS = {"drawText", "drawVectorFontText", "draw1dBarcode", "drawMaxicode", "drawPdf417", "drawQrCode", "drawDataMatrix", "drawBlock", "drawCircle", "setCharacterSet", "setPrintingType", "setMargin", "setLength", "setWidth", "setBufferMode", "clearBuffer", "setSpeed", "setDensity", "setOrientation", "setOffset", "setCutterPosition", "drawBitmap", "initializePrinter", "printInformation", "setAutoCutter", "getStatus", "getPrinterInformation", "executeDirectIo", "printSample", "drawPDF", "setupRFID", "calibrateRFID", "setRFIDPosition", "writeRFID", "emptyLabelPrint", "disableInactivityTime", "setLeftMarginPosition", "transferFile", "printerFirmwareDownload", "wlanFirmwareDownload", "WLAN Setting"};
+    private MethodChannel channel;
+    private EventChannel.EventSink eventSink;
+    private MethodChannel.Result pendingPrintResult;
+    private MethodChannel.Result pendingConnectResult;
     static BixolonLabelPrinter mBixolonLabelPrinter;
-    static int count = 1;
-    private static Set<BluetoothDevice> discoverDevices = new HashSet<>();
+    private Activity activity;
 
-    static {
-        try {
-            System.loadLibrary("bxl_common");
-        } catch (Exception e) {
-            e.printStackTrace();
+    // -------------------------
+    // EVENT CHANNEL
+    // -------------------------
+    private void sendCallback(Object value) {
+        if (eventSink != null) {
+            eventSink.success(value);
         }
     }
 
-    private final int REQUEST_PERMISSION = 0;
-    private final int REQUEST_FIRMWARE_SELECT = 10;
-    private final int REQUEST_TRANSFER_FILE = 11;
-    private final int REQUEST_WLAN_FIRMWARE = 12;
-    private final String ACTION_USB_PERMISSION = "com.android.example.USB_PERMISSION";
-    public Handler m_hHandler = null;
-    public BluetoothAdapter m_BluetoothAdapter = null;
-    public BluetoothLeScanner mLEScanner = null;
-    public ScanSettings settings = null;
-    public List<ScanFilter> filters;
-    public ArrayAdapter<String> adapter = null;
-    public ArrayList<BluetoothDevice> m_LeDevices;
-    /// The MethodChannel that will the communication between Flutter and native Android
-    ///
-    /// This local reference serves to register the plugin with the Flutter Engine and unregister it
-    /// when the Flutter Engine is detached from the Activity
-    private MethodChannel channel;
-    // Name of the connected device
-    private String mConnectedDeviceName = null;
-    private ListView mListView;
-    private boolean mIsConnected;
-    private boolean checkedManufacture = false;
-    private ScanCallback mScanCallback;
-    private PendingIntent mPermissionIntent;
-    private UsbManager usbManager;
-    private UsbDevice device;
-    private Activity activity;
-    private boolean tryedAutoConnect = true;
-    private AlertDialog progressDialog;
+    // -------------------------
+    // HANDLER CALLBACK
+    // -------------------------
     @SuppressLint("HandlerLeak")
     private final Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case BixolonLabelPrinter.MESSAGE_TRANSFER_FILE:
-                    switch (msg.arg1) {
-                        case BixolonLabelPrinter.RC_SUCCESS:
-                            if (progressDialog != null) progressDialog.dismiss();
-                            progressDialog = null;
-                            Log.e("BixolonHandler", "file transfer success");
-                            break;
-                        case BixolonLabelPrinter.RC_PROGRESS:
-                            if (progressDialog != null && !progressDialog.isShowing())
-                                progressDialog.show();
-                            TextView message = progressDialog.findViewById(android.R.id.message);
-                            message.setText("WLAN Firmware Send: " + msg.obj.toString());
-                            Log.e("BixolonHandler", "file sending: " + msg.obj);
-                            break;
-                        case BixolonLabelPrinter.RC_FAIL:
-                            int errorCode = msg.arg2;
-                            if (progressDialog != null) progressDialog.dismiss();
-                            progressDialog = null;
-                            Log.e("BixolonHandler", "file transfer fail: " + errorCode);
-                            break;
-                    }
-                    break;
 
-                case BixolonLabelPrinter.MESSAGE_FIRMWARE_UPDATE:
-                    switch (msg.arg1) {
-                        case BixolonLabelPrinter.FIRMWARE_COMPLETE:
-                            Log.e("BixolonHandler", "firmware download complete");
-                            if (progressDialog != null) progressDialog.dismiss();
-                            progressDialog = null;
-                            break;
-                        case BixolonLabelPrinter.FIRMWARE_PROGRESS:
-                            if (progressDialog != null && !progressDialog.isShowing())
-                                progressDialog.show();
-                            TextView message = progressDialog.findViewById(android.R.id.message);
-                            message.setText(msg.obj.toString());
-                            Log.e("BixolonHandler", "firmware progress: " + msg.obj);
-                            break;
-                        case BixolonLabelPrinter.FIRMWARE_DELAY_UPDATE:
-                            if (msg.obj != null) Log.e("BixolonHandler", "delay: " + msg.obj);
-                            break;
-                        case BixolonLabelPrinter.FIRMWARE_EXCEPTION:
-                            if (msg.obj != null) Log.e("BixolonHandler", "exception :" + msg.obj);
-                            break;
-                    }
-                    break;
+            switch (msg.what) {
 
                 case BixolonLabelPrinter.MESSAGE_STATE_CHANGE:
                     switch (msg.arg1) {
+
                         case BixolonLabelPrinter.STATE_CONNECTED:
-                            Log.e("BixolonHandler", "STATE_CONNECTED");
+                            Log.e("Bixolon", "Connected");
+                            sendCallback("connected");
                             break;
 
                         case BixolonLabelPrinter.STATE_CONNECTING:
-                            Log.e("BixolonHandler", "STATE_CONNECTING");
+                            Log.e("Bixolon", "Connecting...");
                             break;
 
                         case BixolonLabelPrinter.STATE_NONE:
-                            Log.e("BixolonHandler", "STATE_NONE: " + msg.toString());
+                            Log.e("Bixolon", "Connection Failed");
+                            if (eventSink != null) {
+                                eventSink.error("connection_failed", "Unable to connect", null);
+                            }
                             break;
                     }
                     break;
 
                 case BixolonLabelPrinter.MESSAGE_READ:
-                    Log.e("BixolonHandler", "MESSAGE_READ");
-                    break;
-
-                case BixolonLabelPrinter.MESSAGE_DEVICE_NAME:
-                    mConnectedDeviceName = msg.getData().getString(BixolonLabelPrinter.DEVICE_NAME);
-                    Log.e("BixolonHandler", "Connected device name: " + mConnectedDeviceName);
+                    Log.e("Bixolon", "MESSAGE_READ (print success assumed)");
+                    sendCallback("print_success");
                     break;
 
                 case BixolonLabelPrinter.MESSAGE_TOAST:
-                    Log.e("BixolonHandler", "Toast message: " +
-                            msg.getData().getString(BixolonLabelPrinter.TOAST));
-                    break;
-
-                case BixolonLabelPrinter.MESSAGE_LOG:
-                    Log.e("BixolonHandler", "Log message: " +
-                            msg.getData().getString(BixolonLabelPrinter.LOG));
-                    break;
-
-                case BixolonLabelPrinter.MESSAGE_BLUETOOTH_DEVICE_SET:
-                    if (msg.obj == null) {
-                        Log.e("BixolonHandler", "No paired device");
-                    } else {
-                        Log.e("BixolonHandler", "Bluetooth devices: " + msg.obj.toString());
+                    Log.e("Bixolon", "Toast message (print error triggered)");
+                    if (eventSink != null) {
+                        eventSink.error("print_failed", "Print failed", null);
                     }
                     break;
 
-                case BixolonLabelPrinter.MESSAGE_USB_DEVICE_SET:
-                    if (msg.obj == null) {
-                        Log.e("BixolonHandler", "No connected USB device");
-                    } else {
-                        Log.e("BixolonHandler", "USB devices: " + msg.obj.toString());
-                    }
-                    break;
-
-                case BixolonLabelPrinter.MESSAGE_NETWORK_DEVICE_SET:
-                    if (msg.obj == null) {
-                        Log.e("BixolonHandler", "No connectable network device");
-                    } else {
-                        Log.e("BixolonHandler", "Network devices: " + msg.obj.toString());
-                    }
+                case BixolonLabelPrinter.MESSAGE_DEVICE_NAME:
+                    Log.e("Bixolon", "Device: " +
+                            msg.getData().getString(BixolonLabelPrinter.DEVICE_NAME));
                     break;
             }
         }
     };
-    private String[] permissions = {
-            Manifest.permission.READ_EXTERNAL_STORAGE,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE,
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-    };
 
+    // -------------------------
+    // PLUGIN ATTACH
+    // -------------------------
     @Override
-    public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
-        this.activity = binding.getActivity();
-    }
+    public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
 
-    @Override
-    public void onDetachedFromActivityForConfigChanges() {
-        this.activity = null;
-    }
-
-    @Override
-    public void onReattachedToActivityForConfigChanges(@NonNull ActivityPluginBinding binding) {
-        this.activity = binding.getActivity();
-    }
-
-    @Override
-    public void onDetachedFromActivity() {
-        this.activity = null;
-    }
-
-    @Override
-    public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
-        channel = new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "bixolon_printer");
+        channel = new MethodChannel(binding.getBinaryMessenger(), "bixolon_printer");
         channel.setMethodCallHandler(this);
-    }
 
-    @Override
-    public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
-        if (call.method.equals("getPlatformVersion")) {
-            result.success("Android " + android.os.Build.VERSION.RELEASE);
-        } else if (call.method.equals("initPrinter")) {
-            mBixolonLabelPrinter = new BixolonLabelPrinter(activity, mHandler, Looper.getMainLooper());
-            result.success("init sdk");
-        } else if (call.method.equals("connectSDK")) {
-            String macAddress = call.argument("mac_address");
-            mBixolonLabelPrinter.connect(macAddress);
-            result.success(macAddress);
-        } else if (call.method.equals("printSample")) {
-            printLabelSample(
-                    call.argument("dstWidth"), call.argument("dstHeight"), call.argument("horizontalStartPosition"), call.argument("verticalStartPosition"), call.argument("width"), call.argument("level"), call.argument("base64Image")
-            );
-            result.success("print Sample");
-        } else {
-            result.notImplemented();
-        }
+        new EventChannel(binding.getBinaryMessenger(), "bixolon_printer_callback")
+                .setStreamHandler(new EventChannel.StreamHandler() {
+                    @Override
+                    public void onListen(Object arguments, EventChannel.EventSink events) {
+                        eventSink = events;
+                    }
+
+                    @Override
+                    public void onCancel(Object arguments) {
+                        eventSink = null;
+                    }
+                });
     }
 
     @Override
@@ -258,58 +134,108 @@ public class BixolonPrinterPlugin implements FlutterPlugin, MethodCallHandler, A
         channel.setMethodCallHandler(null);
     }
 
-    private int convert203To300DPI(int value) {
-        if (mBixolonLabelPrinter.getPrinterDpi() == 2) return value;
-        else return (int) (((float) value / 203.0f) * 300);
+    // -------------------------
+    // ACTIVITY ATTACH
+    // -------------------------
+    @Override
+    public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
+        this.activity = binding.getActivity();
     }
 
-    private Bitmap base64ToBitmap(String data) {
-        if (data == null || data.isEmpty()) {
-            return null;
+    @Override public void onDetachedFromActivityForConfigChanges() { this.activity = null; }
+    @Override public void onReattachedToActivityForConfigChanges(@NonNull ActivityPluginBinding binding) { this.activity = binding.getActivity(); }
+    @Override public void onDetachedFromActivity() { this.activity = null; }
+
+    // -------------------------
+    // METHOD CALLS FROM FLUTTER
+    // -------------------------
+    @Override
+    public void onMethodCall(@NonNull MethodCall call, @NonNull MethodChannel.Result result) {
+
+        switch (call.method) {
+
+            case "initPrinter":
+                mBixolonLabelPrinter = new BixolonLabelPrinter(activity, mHandler, Looper.getMainLooper());
+                result.success("initialized");
+                break;
+
+            case "connectSDK":
+                String mac = call.argument("mac_address");
+                pendingConnectResult = result;
+                mBixolonLabelPrinter.connect(mac);
+                result.success("connecting");
+                break;
+
+            case "printSample":
+                pendingPrintResult = result;
+                printLabel(
+                        call.argument("dstWidth"),
+                        call.argument("dstHeight"),
+                        call.argument("horizontalStartPosition"),
+                        call.argument("verticalStartPosition"),
+                        call.argument("width"),
+                        call.argument("level"),
+                        call.argument("printQty"),
+                        call.argument("base64Image")
+                );
+                result.success("printing");
+                break;
+
+            default:
+                result.notImplemented();
         }
+    }
+
+    // -------------------------
+    // PRINT IMAGE
+    // -------------------------
+    private Bitmap base64ToBitmap(String data) {
+        if (data == null || data.isEmpty()) return null;
         byte[] decodedString = Base64.decode(data, Base64.NO_WRAP);
         return BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
     }
 
-    private void printLabelSample(int dstWidth, int dstHeight, int horizontalStartPosition, int verticalStartPosition, int width, int level, String base64Image) {
-        Log.e("printLabelSample", "printLabelSample: init");
-        mBixolonLabelPrinter.beginTransactionPrint();
-//        mBixolonLabelPrinter.drawBitmap(
-//                Bitmap.createScaledBitmap(
-//                        base64ToBitmap("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"),
-//                        convert203To300DPI(110),
-//                        convert203To300DPI(140),
-//                        true
-//                ),
-//                convert203To300DPI(60),
-//                convert203To300DPI(60),
-//                convert203To300DPI(110),
-//                convert203To300DPI(140),
-//                true
-//        );
-        Log.e("DI", "printLabelSample:dstWidth "+dstWidth );
-        Log.e("DI", "printLabelSample:dstHeight "+dstHeight );
-        Log.e("DI", "printLabelSample:horizontalStartPosition "+horizontalStartPosition );
-        Log.e("DI", "printLabelSample:verticalStartPosition "+verticalStartPosition );
-        Log.e("DI", "printLabelSample:width "+width );
-        Log.e("DI", "printLabelSample:level "+level );
-        mBixolonLabelPrinter.drawBitmap(
-                Bitmap.createScaledBitmap(
-                        base64ToBitmap(base64Image),
-                        dstWidth,
-                        dstHeight,
-                        true
-                ),
-                horizontalStartPosition,
-                verticalStartPosition,
-                width,
-                level,
-                true
-        );
-        mBixolonLabelPrinter.print(1, 1);
-        mBixolonLabelPrinter.endTransactionPrint();
+    private void printLabel(
+            int dstWidth,
+            int dstHeight,
+            int horizontalStartPosition,
+            int verticalStartPosition,
+            int width,
+            int level,
+            int printQty,
+            String base64Image
+    ) {
+
+        try {
+            mBixolonLabelPrinter.beginTransactionPrint();
+
+            Bitmap bmp = Bitmap.createScaledBitmap(
+                    base64ToBitmap(base64Image),
+                    dstWidth,
+                    dstHeight,
+                    true
+            );
+
+            mBixolonLabelPrinter.drawBitmap(
+                    bmp,
+                    horizontalStartPosition,
+                    verticalStartPosition,
+                    width,
+                    level,
+                    true
+            );
+
+            mBixolonLabelPrinter.print(printQty, 1);
+
+            mBixolonLabelPrinter.endTransactionPrint();
+
+            sendCallback("print_done");
+            sendCallback("print_count:" + printQty);
+
+        } catch (Exception e) {
+            if (eventSink != null) {
+                eventSink.error("print_error", e.getMessage(), null);
+            }
+        }
     }
 }
-
-//---------------------------------------
-

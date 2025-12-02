@@ -39,4 +39,8 @@ abstract class BixolonPrinterPlatform extends PlatformInterface {
   Future<String?> printSample({required PrintConfig printConfig}) {
     throw UnimplementedError('connectPrinter() has not been implemented.');
   }
+
+  Stream<dynamic> get printerEvents {
+    throw UnimplementedError("printerEvents has not been implemented.");
+  }
 }

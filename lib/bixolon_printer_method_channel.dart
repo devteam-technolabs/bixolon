@@ -10,11 +10,13 @@ class MethodChannelBixolonPrinter extends BixolonPrinterPlatform {
   @visibleForTesting
   final methodChannel = const MethodChannel('bixolon_printer');
 
+  /// Event channel for receiving callbacks from native
+  @visibleForTesting
+  static const EventChannel eventChannel = EventChannel('bixolon_printer/events');
+
   @override
   Future<String?> getPlatformVersion() async {
-    final version = await methodChannel.invokeMethod<String>(
-      'getPlatformVersion',
-    );
+    final version = await methodChannel.invokeMethod<String>('getPlatformVersion');
     return version;
   }
 
@@ -34,10 +36,10 @@ class MethodChannelBixolonPrinter extends BixolonPrinterPlatform {
 
   @override
   Future<String?> printSample({required PrintConfig printConfig}) async {
-    final response = await methodChannel.invokeMethod<String>(
-      'printSample',
-      printConfig.toJson(),
-    );
+    final response = await methodChannel.invokeMethod<String>('printSample', printConfig.toJson());
     return response;
   }
+
+  /// Event stream from native Android/iOS
+  Stream<dynamic> get printerEvents => eventChannel.receiveBroadcastStream();
 }

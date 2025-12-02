@@ -20,15 +20,16 @@ class BixolonPrinter {
   ///
   /// [macAddress] must be the Bluetooth MAC address of the printer.
   Future<String?> connectSDK({required String macAddress}) {
-    return BixolonPrinterPlatform.instance.connectPrinter(
-      macAddress: macAddress,
-    );
+    return BixolonPrinterPlatform.instance.connectPrinter(macAddress: macAddress);
   }
 
   /// Sends a sample print job to the connected Bixolon printer.
   Future<String?> printSample({required PrintConfig printConfig}) {
-    return BixolonPrinterPlatform.instance.printSample(
-      printConfig: printConfig,
-    );
+    return BixolonPrinterPlatform.instance.printSample(printConfig: printConfig);
+  }
+
+  /// Listen to ALL native events (connected, print_success, errors)
+  Stream<dynamic> listenToEvents() {
+    return BixolonPrinterPlatform.instance.printerEvents;
   }
 }
