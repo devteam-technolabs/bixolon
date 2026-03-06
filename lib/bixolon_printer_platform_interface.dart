@@ -28,12 +28,20 @@ abstract class BixolonPrinterPlatform extends PlatformInterface {
     throw UnimplementedError('platformVersion() has not been implemented.');
   }
 
+  Future<String?> disconnectPrinter() {
+    throw UnimplementedError('disconnectPrinter() has not been implemented.');
+  }
+
   Future<String?> initPrinter() {
     throw UnimplementedError('initPrinter() has not been implemented.');
   }
 
   Future<String?> connectPrinter({required String macAddress}) {
     throw UnimplementedError('connectPrinter() has not been implemented.');
+  }
+
+  Future<bool?> isConnected() {
+    throw UnimplementedError('isConnected() has not been implemented.');
   }
 
   Future<String?> printSample({required PrintConfig printConfig}) {

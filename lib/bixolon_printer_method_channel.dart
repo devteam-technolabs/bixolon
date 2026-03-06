@@ -40,6 +40,17 @@ class MethodChannelBixolonPrinter extends BixolonPrinterPlatform {
     return response;
   }
 
+  @override
+  Future<String?> disconnectPrinter() async {
+    final response = await methodChannel.invokeMethod<String>('disconnect');
+    return response;
+  }
+  @override
+  Future<bool> isConnected() async {
+    final result = await methodChannel.invokeMethod<bool>('isConnected');
+    return result ?? false;
+  }
+
   /// Event stream from native Android/iOS
   Stream<dynamic> get printerEvents => eventChannel.receiveBroadcastStream();
 }

@@ -46,6 +46,7 @@ class _MainScreenState extends State<MainScreen> {
     _bixolonPrinterPlugin.intiSDK();
     super.initState();
     initPlatformState();
+    checkPrinterConnection();
   }
 
   Future<void> initPlatformState() async {
@@ -53,14 +54,10 @@ class _MainScreenState extends State<MainScreen> {
 
     try {
       adapterState = await _flutterBlueClassicPlugin.adapterStateNow;
-      _adapterStateSubscription = _flutterBlueClassicPlugin.adapterState.listen(
-        (current) {
-          if (mounted) setState(() => _adapterState = current);
-        },
-      );
-      _scanSubscription = _flutterBlueClassicPlugin.scanResults.listen((
-        device,
-      ) {
+      _adapterStateSubscription = _flutterBlueClassicPlugin.adapterState.listen((current) {
+        if (mounted) setState(() => _adapterState = current);
+      });
+      _scanSubscription = _flutterBlueClassicPlugin.scanResults.listen((device) {
         if (mounted) setState(() => _scanResults.add(device));
       });
 
@@ -70,9 +67,7 @@ class _MainScreenState extends State<MainScreen> {
         });
       });
 
-      _scanningStateSubscription = _flutterBlueClassicPlugin.isScanning.listen((
-        isScanning,
-      ) {
+      _scanningStateSubscription = _flutterBlueClassicPlugin.isScanning.listen((isScanning) {
         if (mounted) setState(() => _isScanning = isScanning);
       });
     } catch (e) {
@@ -94,12 +89,34 @@ class _MainScreenState extends State<MainScreen> {
     super.dispose();
   }
 
+  bool isPrinterConnected = false;
+
+  Future<void> checkPrinterConnection() async {
+    final connected = await _bixolonPrinterPlugin.isConnected();
+
+    setState(() {
+      isPrinterConnected = connected ?? false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     List<BluetoothDevice> scanResults = _scanResults.toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Prep Gaurdian')),
+      appBar: AppBar(
+        title: const Text('Prep Gaurdian'),
+        actions: [
+          if (isPrinterConnected)
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.red),
+              onPressed: () async {
+                await _bixolonPrinterPlugin.disconnectSDK();
+                checkPrinterConnection();
+              },
+            ),
+        ],
+      ),
       body: ListView(
         children: [
           ListTile(
@@ -131,9 +148,8 @@ class _MainScreenState extends State<MainScreen> {
                   //   );
                   //   if (!this.context.mounted) return;
                   //   if (connection != null && connection.isConnected) {
-                  var address = await _bixolonPrinterPlugin.connectSDK(
-                    macAddress: result.address,
-                  );
+                  var address = await _bixolonPrinterPlugin.connectSDK(macAddress: result.address);
+                  await checkPrinterConnection();
                   print(address);
                   _bixolonPrinterPlugin.printSample(
                     printConfig: PrintConfig(
@@ -177,9 +193,7 @@ class _MainScreenState extends State<MainScreen> {
               }
             },
             label: Text(_isScanning ? "Scanning..." : "Start device scan"),
-            icon: Icon(
-              _isScanning ? Icons.bluetooth_searching : Icons.bluetooth,
-            ),
+            icon: Icon(_isScanning ? Icons.bluetooth_searching : Icons.bluetooth),
           ),
         ],
       ),

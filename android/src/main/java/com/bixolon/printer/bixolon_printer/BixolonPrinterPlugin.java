@@ -165,7 +165,22 @@ public class BixolonPrinterPlugin implements FlutterPlugin, MethodChannel.Method
                 mBixolonLabelPrinter.connect(mac);
                 result.success("connecting");
                 break;
+            case "disconnect":
+                try {
+                    if (mBixolonLabelPrinter != null) {
+                        mBixolonLabelPrinter.disconnect();
+                        sendCallback("disconnected");
+                    }
+                    result.success("disconnected");
+                } catch (Exception e) {
+                    result.error("disconnect_error", e.getMessage(), null);
+                }
+                break;
+            case "isConnected":
+                boolean connected = mBixolonLabelPrinter != null && mBixolonLabelPrinter.isConnected();
 
+                result.success(connected);
+                break;
             case "printSample":
                 pendingPrintResult = result;
                 printLabel(

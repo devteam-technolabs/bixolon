@@ -28,8 +28,18 @@ class BixolonPrinter {
     return BixolonPrinterPlatform.instance.printSample(printConfig: printConfig);
   }
 
+  /// Sends a sample print job to the connected Bixolon printer.
+  Future<bool?> isConnected() {
+    return BixolonPrinterPlatform.instance.isConnected();
+  }
+
   /// Listen to ALL native events (connected, print_success, errors)
   Stream<dynamic> listenToEvents() {
     return BixolonPrinterPlatform.instance.printerEvents;
+  }
+
+  /// Disconnect printer
+  Future<String?> disconnectSDK() {
+    return BixolonPrinterPlatform.instance.disconnectPrinter();
   }
 }
