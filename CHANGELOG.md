@@ -1,3 +1,8 @@
-## 0.0.1
+## 0.0.4
 
-* TODO: Describe initial release.
+### ✨ Features
+- Added `isConnected` API to check printer connection status
+- Added `disconnect` API to handle printer disconnection
+
+### 🔧 Improvements
+- Improved connection stability and state management
