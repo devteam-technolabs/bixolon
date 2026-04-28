@@ -1,5 +1,5 @@
 name: bixolon_printer
-description: "A new Flutter project."
+description: "A lightweight Flutter plugin to connect, manage, and print using Bixolon Bluetooth printers with support for connection status and Base64 image printing."
 version: 0.0.4
 homepage:
 
